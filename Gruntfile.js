@@ -28,14 +28,35 @@ module.exports = function (grunt) {
       all: {
         options: {
           sync: ['author', 'name', 'version',
-            'private', 'license', 'keywords', 'homepage'],
+            'private', 'license', 'keywords', 'homepage']
         }
+      }
+    },
+
+    karma: {
+      unit: {
+        configFile: 'karma.conf.js'
+      },
+      continuous: {
+        configFile: 'karma.conf.js',
+        singleRun: false,
+        autoWatch: true
+      }
+    },
+
+    coveralls: {
+      options: {
+        debug: true,
+        coverage_dir: 'coverage',
+        force: true
       }
     }
   });
-
+  grunt.loadNpmTasks('grunt-karma');
   var plugins = module.require('matchdep').filterDev('grunt-*');
   plugins.forEach(grunt.loadNpmTasks);
+
+  grunt.registerTask('test', ['karma:unit']);
 
   grunt.registerTask('default', ['deps-ok', 'nice-package', 'sync', 'jshint']);
 };

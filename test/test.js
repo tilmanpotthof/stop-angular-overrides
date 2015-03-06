@@ -1,83 +1,80 @@
-/* global window, document, require, QUnit */
-var benv = require('benv');
-var Q = require('q');
+/* global window, document, expect, angular */
 
-QUnit.module('angular overrides', {
-  setup: function () {
-    var defer = Q.defer();
-    benv.setup(function () {
-      defer.resolve();
+describe('stop-angular-overrides', function () {
+
+  describe('test environment', function () {
+    it('has a window and document object', function () {
+      expect(window).toBeDefined();
+      expect(document).toBeDefined();
     });
-    return defer.promise;
-  },
-  teardown: function () {
-    benv.teardown();
-  }
-});
 
-QUnit.test('environment sanity check', function () {
-  QUnit.object(window, 'window object exists');
-  QUnit.object(document, 'document object exists');
-});
+    it('loads angular', function () {
+      expect(angular).toBeDefined();
+      expect(typeof angular.module).toBe('function');
+    });
+  });
 
-QUnit.test('loading angular', function () {
-  var angular = benv.require('../bower_components/angular/angular.js', 'angular');
-  QUnit.equal(typeof angular, 'object', 'loaded angular');
-  QUnit.func(angular.module, 'angular.module is an object');
-});
+  describe('angular.bind', function () {
+    it('is a function', function() {
+      expect(typeof angular.bind).toBe('function');
+    });
+    it('creates a curried function', function() {
+      var foo = {
+        name: 'foo',
+        getName: function () {
+          return this.name;
+        }
+      };
+      var name = angular.bind(foo, foo.getName);
+      expect(name()).toBe(foo.name);
+    });
+  });
 
-QUnit.test('angular.bind', function () {
-  var angular = benv.require('../bower_components/angular/angular.js', 'angular');
-  QUnit.func(angular.bind, 'angular.bind is a function');
-  var foo = {
-    name: 'foo',
-    getName: function () {
-      return this.name;
-    }
-  };
-  var name = angular.bind(foo, foo.getName);
-  QUnit.equal(name(), foo.name);
-});
+  describe('override protection', function () {
+    var first = angular.module('A', []);
+    var FooController = function () {
+      this.fooVariable = 'fooVariable';
+    };
+    var fooFilter = function (value) {
+      return value;
+    };
 
-QUnit.test('last module overrides by default', function () {
-  var angular = benv.require('../bower_components/angular/angular.js', 'angular');
-  var first = angular.module('A', []);
-  QUnit.equal(angular.module('A'), first, 'A -> first module');
+    it('registers modules still as documented', function () {
+      expect(angular.module('A')).toBe(first);
+    });
 
-  var second = angular.module('A', []);
-  QUnit.equal(angular.module('A'), second, 'A -> second module');
-});
+    it('throws an error when overriding a module', function () {
+      expect(function () {
+        angular.module('A', []);
+      }).toThrowError('Angular module A already exists');
+    });
 
-QUnit.test('stop angular override', function () {
-  var angular = benv.require('../bower_components/angular/angular.js', 'angular');
-  benv.require('../stop-angular-overrides.js');
+    it('registers controllers still as document', function () {
+      angular.module('A').controller('FooController', FooController);
+      var $controller = angular.injector(['ng', 'A']).get('$controller');
+      expect($controller('FooController', {$scope: {}})).toEqual(new FooController());
+    });
 
-  var first = angular.module('A', []);
-  QUnit.equal(angular.module('A'), first, 'A -> first module');
+    it('throws an error when overriding a controller', function () {
+      expect(function () {
+        angular.module('A').controller('FooController', FooController);
+      }).toThrowError('Angular controller FooController already exists');
+    });
 
-  QUnit.throws(function () {
-    angular.module('A', []);
-  }, 'Error');
-});
+    it('registers filters still as document', function () {
+      angular.module('A').filter('fooFilter', function () {
+        return fooFilter;
+      });
+      var $filter = angular.injector(['ng', 'A']).get('$filter');
+      expect($filter('fooFilter')).toBe(fooFilter);
+    });
 
-QUnit.test('stop angular controller override', function () {
-  var angular = benv.require('../bower_components/angular/angular.js', 'angular');
-  benv.require('../stop-angular-overrides.js');
-
-  angular.module('A1', []).controller('controller', function () {});
-
-  QUnit.throws(function () {
-    angular.module('A2', []).controller('controller', function () {});
-  }, 'Error');
-});
-
-QUnit.test('stop angular filter override', function () {
-  var angular = benv.require('../bower_components/angular/angular.js', 'angular');
-  benv.require('../stop-angular-overrides.js');
-
-  angular.module('A1', []).filter('f', function () {});
-
-  QUnit.throws(function () {
-    angular.module('A2', []).filter('f', function () {});
-  }, 'Error');
+    it('throws an error when overriding a filter', function () {
+      expect(function () {
+        angular.module('A').filter('fooFilter', function () {
+          return fooFilter;
+        });
+      }).toThrowError('Angular filter fooFilter already exists');
+    });
+  });
 });
